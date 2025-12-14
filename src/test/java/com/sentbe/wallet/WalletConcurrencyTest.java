@@ -22,11 +22,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
-//import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 
 
 @SpringBootTest
-//@ActiveProfiles("test")
+@ActiveProfiles("test")
 public class WalletConcurrencyTest {
     
     @Autowired
@@ -121,7 +120,7 @@ public class WalletConcurrencyTest {
         
         // 검증
         assertThat(finalWallet.getBalance()).isEqualTo(expectedBalance);
-        assertThat(finalWallet.getBalance()).isEqualTo(BigDecimal.ZERO);
+        assertThat(finalWallet.getBalance().compareTo(BigDecimal.ZERO)).isEqualTo(0);
         assertThat(successfulTransactions).isEqualTo(successCount.get());
         assertThat(totalWithdrawn).isEqualTo(WITHDRAW_AMOUNT.multiply(BigDecimal.valueOf(successfulTransactions)));
         assertThat(processingTransactions).isEqualTo(0); // 모든 거래가 완료되어야 함
@@ -170,5 +169,76 @@ public class WalletConcurrencyTest {
         // 검증 - 중복 transactionId로는 단 1개의 거래만 생성되어야 함
         assertThat(duplicateTransactionCount).isEqualTo(1);
         assertThat(finalWallet.getBalance()).isEqualTo(expectedBalance);
+    }
+    
+    @Test
+    @DisplayName("100개 스레드 동시 출금 요청 - 50번까지만 성공")
+    void concurrentWithdrawLimitedSuccessTest() throws InterruptedException {
+        // Given - 50만원 초기 잔액 (10,000원씩 50번 출금 가능)
+        transactionRepository.deleteAll();
+        walletRepository.deleteAll();
+        
+        BigDecimal limitedBalance = new BigDecimal("500000.00"); // 50만원
+        Wallet limitedWallet = new Wallet(TEST_WALLET_ID, limitedBalance);
+        walletRepository.save(limitedWallet);
+        
+        ExecutorService executorService = Executors.newFixedThreadPool(THREAD_COUNT);
+        CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger failureCount = new AtomicInteger(0);
+        
+        // When - 100개 스레드가 동시에 10,000원씩 출금 요청
+        for (int i = 0; i < THREAD_COUNT; i++) {
+            final int threadIndex = i;
+            executorService.submit(() -> {
+                try {
+                    String transactionId = "LIMITED_TXN_" + threadIndex + "_" + System.currentTimeMillis();
+                    walletService.withdraw(TEST_WALLET_ID, transactionId, WITHDRAW_AMOUNT);
+                    successCount.incrementAndGet();
+                } catch (Exception e) {
+                    failureCount.incrementAndGet();
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        
+        latch.await();
+        executorService.shutdown();
+        
+        // Then
+        Wallet finalWallet = walletRepository.findById(TEST_WALLET_ID).orElseThrow();
+        List<WalletTransaction> transactions = transactionRepository.findAll();
+        
+        // 상태별 거래 수 검증
+        long successfulTransactions = transactions.stream()
+            .filter(t -> t.getStatus().isSuccess())
+            .count();
+        
+        long failedTransactions = transactions.stream()
+            .filter(t -> t.getStatus().isFailed())
+            .count();
+        
+        // 총 출금액 계산
+        BigDecimal totalWithdrawn = transactions.stream()
+            .filter(t -> t.getStatus().isSuccess())
+            .map(WalletTransaction::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        System.out.println("=== 제한된 출금 테스트 결과 ===");
+        System.out.println("초기 잔액: " + limitedBalance);
+        System.out.println("성공한 거래 수: " + successfulTransactions);
+        System.out.println("실패한 거래 수: " + failedTransactions);
+        System.out.println("총 거래 수: " + (successfulTransactions + failedTransactions));
+        System.out.println("총 출금액: " + totalWithdrawn);
+        System.out.println("최종 잔액: " + finalWallet.getBalance());
+        
+        // 검증
+        assertThat(successfulTransactions).isEqualTo(50); // 정확히 50번만 성공
+        assertThat(failedTransactions).isEqualTo(50); // 나머지 50번은 실패
+        assertThat(successfulTransactions + failedTransactions).isEqualTo(THREAD_COUNT); // 총 100개 요청
+        assertThat(totalWithdrawn).isEqualTo(new BigDecimal("500000.00")); // 50만원 출금
+        assertThat(finalWallet.getBalance().compareTo(BigDecimal.ZERO)).isEqualTo(0); // 잔액 0원
+        assertThat(finalWallet.getBalance()).isGreaterThanOrEqualTo(BigDecimal.ZERO); // 마이너스 잔액 없음
     }
 }

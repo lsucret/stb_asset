@@ -7,7 +7,12 @@ spring:
     username: wallet_user
     password: wallet_pass
     driver-class-name: com.mysql.cj.jdbc.Driver
-  
+    hikari:
+      maximum-pool-size: 20
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
   jpa:
     hibernate:
       ddl-auto: create-drop
