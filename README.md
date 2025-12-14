@@ -5,8 +5,8 @@
 
 ## 기술 스택
 - **Language**: Java 21
-- **Framework**: Spring Boot 3+
-- **Database**: MySQL
+- **Framework**: Spring Boot 3.2.0
+- **Database**: MySQL 8.0
 - **ORM**: Spring Data JPA
 
 ## 설계 결정

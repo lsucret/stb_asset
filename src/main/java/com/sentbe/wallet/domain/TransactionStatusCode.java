@@ -1,5 +1,8 @@
 package com.sentbe.wallet.domain;
 
+import lombok.Getter;
+
+@Getter
 public enum TransactionStatusCode {
     PROCESSING("00"),
     SUCCESS("10"),

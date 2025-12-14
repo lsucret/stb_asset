@@ -1,12 +1,18 @@
 package com.sentbe.wallet.domain;
 
 import jakarta.persistence.*;
+import jakarta.persistence.Convert;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "wallet_transaction", 
-       uniqueConstraints = @UniqueConstraint(columnNames = {"wallet_id", "transaction_id"}))
+       uniqueConstraints = @UniqueConstraint(columnNames = {"wallet_id", "transaction_id"}),
+       indexes = {
+           @Index(name = "idx_wallet_id", columnList = "wallet_id"),
+           @Index(name = "idx_status", columnList = "status"),
+           @Index(name = "idx_created_at", columnList = "created_at")
+       })
 public class WalletTransaction {
     
     @Id
@@ -25,7 +31,7 @@ public class WalletTransaction {
     @Column(name = "balance_after", precision = 19, scale = 2)
     private BigDecimal balanceAfter;
     
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = TransactionStatusCodeConverter.class)
     @Column(name = "status", nullable = false, length = 2)
     private TransactionStatusCode status;
     
