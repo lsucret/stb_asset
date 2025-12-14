@@ -6,6 +6,7 @@ import com.sentbe.wallet.repository.WalletRepository;
 import com.sentbe.wallet.repository.WalletTransactionRepository;
 import com.sentbe.wallet.service.WalletService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,13 +23,16 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+//import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+
 
 @SpringBootTest
 @ActiveProfiles("test")
 @Testcontainers
 public class WalletConcurrencyTest {
-    
+
     @Container
+//    @ServiceConnection
     static MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0")
             .withDatabaseName("wallet_test_db")
             .withUsername("test_user")
@@ -51,8 +55,8 @@ public class WalletConcurrencyTest {
     private WalletTransactionRepository transactionRepository;
     
     private static final String TEST_WALLET_ID = "test-wallet";
-    private static final BigDecimal INITIAL_BALANCE = new BigDecimal("1000000.00");
-    private static final BigDecimal WITHDRAW_AMOUNT = new BigDecimal("10000.00");
+    private static final BigDecimal INITIAL_BALANCE = new BigDecimal(1_000_000L);
+    private static final BigDecimal WITHDRAW_AMOUNT = new BigDecimal(10_000L);
     private static final int THREAD_COUNT = 100;
     
     @BeforeEach
@@ -69,7 +73,8 @@ public class WalletConcurrencyTest {
     }
     
     @Test
-    void 동시에_100개_스레드가_출금_요청시_잔액_무결성_보장() throws InterruptedException {
+    @DisplayName("동시에 100개 스레드가 출금 요청시 잔액 무결성 보장")
+    void concurrentWithdrawTest() throws InterruptedException {
         // Given
         ExecutorService executorService = Executors.newFixedThreadPool(THREAD_COUNT);
         CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
@@ -129,7 +134,8 @@ public class WalletConcurrencyTest {
     }
     
     @Test
-    void 멱등성_테스트_동일한_transactionId로_중복_요청시_한번만_처리() throws InterruptedException {
+    @DisplayName("멱등성 테스트 - 동일한 transactionId로 중복 요청시 한번만 처리")
+    void idempotencyTest() throws InterruptedException {
         // Given
         String duplicateTransactionId = "DUPLICATE_TXN_123";
         ExecutorService executorService = Executors.newFixedThreadPool(10);

@@ -1,7 +1,7 @@
 spring:
-  datasource:
+#  datasource:
     # Testcontainers가 자동으로 설정
-    driver-class-name: com.mysql.cj.jdbc.Driver
+#    driver-class-name: com.mysql.cj.jdbc.Driver
   
   jpa:
     hibernate:
@@ -16,3 +16,8 @@ logging:
   level:
     org.hibernate.SQL: WARN
     org.hibernate.type.descriptor.sql.BasicBinder: WARN
+
+## Testcontainers 설정
+#testcontainers:
+#  reuse:
+#    enable: true
