@@ -1,5 +1,6 @@
 package com.sentbe.wallet;
 
+import com.sentbe.wallet.config.TestDataInitializer;
 import com.sentbe.wallet.domain.Wallet;
 import com.sentbe.wallet.domain.WalletTransaction;
 import com.sentbe.wallet.repository.WalletRepository;
@@ -11,9 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
-import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -27,23 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 
 @SpringBootTest
-@ActiveProfiles("test")
-@Testcontainers
+//@ActiveProfiles("test")
 public class WalletConcurrencyTest {
-
-    @Container
-//    @ServiceConnection
-    static MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0")
-            .withDatabaseName("wallet_test_db")
-            .withUsername("test_user")
-            .withPassword("test_pass");
-    
-    @org.springframework.test.context.DynamicPropertySource
-    static void configureProperties(org.springframework.test.context.DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", mysql::getJdbcUrl);
-        registry.add("spring.datasource.username", mysql::getUsername);
-        registry.add("spring.datasource.password", mysql::getPassword);
-    }
     
     @Autowired
     private WalletService walletService;
@@ -55,8 +39,8 @@ public class WalletConcurrencyTest {
     private WalletTransactionRepository transactionRepository;
     
     private static final String TEST_WALLET_ID = "test-wallet";
-    private static final BigDecimal INITIAL_BALANCE = new BigDecimal(1_000_000L);
-    private static final BigDecimal WITHDRAW_AMOUNT = new BigDecimal(10_000L);
+    private static final BigDecimal INITIAL_BALANCE = new BigDecimal("1000000.00");
+    private static final BigDecimal WITHDRAW_AMOUNT = new BigDecimal("10000.00");
     private static final int THREAD_COUNT = 100;
     
     @BeforeEach
@@ -69,7 +53,7 @@ public class WalletConcurrencyTest {
         walletRepository.save(testWallet);
         
         // 추가 테스트 데이터 초기화
-        com.sentbe.wallet.config.TestDataInitializer.initializeTestData(walletRepository);
+        TestDataInitializer.initializeTestData(walletRepository);
     }
     
     @Test
@@ -104,14 +88,22 @@ public class WalletConcurrencyTest {
         Wallet finalWallet = walletRepository.findById(TEST_WALLET_ID).orElseThrow();
         List<WalletTransaction> transactions = transactionRepository.findAll();
         
-        // 성공한 거래 수 검증
+        // 상태별 거래 수 검증
         long successfulTransactions = transactions.stream()
-            .filter(t -> t.getStatus() == WalletTransaction.TransactionStatus.SUCCESS)
+            .filter(t -> t.getStatus().isSuccess())
+            .count();
+        
+        long failedTransactions = transactions.stream()
+            .filter(t -> t.getStatus().isFailed())
+            .count();
+        
+        long processingTransactions = transactions.stream()
+            .filter(t -> t.getStatus().isProcessing())
             .count();
         
         // 총 출금액 계산
         BigDecimal totalWithdrawn = transactions.stream()
-            .filter(t -> t.getStatus() == WalletTransaction.TransactionStatus.SUCCESS)
+            .filter(t -> t.getStatus().isSuccess())
             .map(WalletTransaction::getAmount)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
         
@@ -121,16 +113,18 @@ public class WalletConcurrencyTest {
         System.out.println("=== 동시성 테스트 결과 ===");
         System.out.println("초기 잔액: " + INITIAL_BALANCE);
         System.out.println("성공한 거래 수: " + successfulTransactions);
-        System.out.println("실패한 거래 수: " + failureCount.get());
+        System.out.println("실패한 거래 수: " + failedTransactions);
+        System.out.println("처리 중인 거래 수: " + processingTransactions);
         System.out.println("총 출금액: " + totalWithdrawn);
         System.out.println("최종 잔액: " + finalWallet.getBalance());
         System.out.println("예상 잔액: " + expectedBalance);
         
         // 검증
         assertThat(finalWallet.getBalance()).isEqualTo(expectedBalance);
-        assertThat(finalWallet.getBalance()).isGreaterThanOrEqualTo(BigDecimal.ZERO);
+        assertThat(finalWallet.getBalance()).isEqualTo(BigDecimal.ZERO);
         assertThat(successfulTransactions).isEqualTo(successCount.get());
         assertThat(totalWithdrawn).isEqualTo(WITHDRAW_AMOUNT.multiply(BigDecimal.valueOf(successfulTransactions)));
+        assertThat(processingTransactions).isEqualTo(0); // 모든 거래가 완료되어야 함
     }
     
     @Test

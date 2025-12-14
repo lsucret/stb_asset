@@ -18,7 +18,7 @@ public record WithdrawResponse(
             transaction.getTransactionId(),
             transaction.getAmount(),
             transaction.getBalanceAfter(),
-            transaction.getStatus().name(),
+            transaction.getStatus().getCode(),
             transaction.getCreatedAt()
         );
     }

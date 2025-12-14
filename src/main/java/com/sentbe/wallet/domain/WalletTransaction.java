@@ -22,15 +22,12 @@ public class WalletTransaction {
     @Column(name = "amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
     
-    @Column(name = "balance_after", nullable = false, precision = 19, scale = 2)
+    @Column(name = "balance_after", precision = 19, scale = 2)
     private BigDecimal balanceAfter;
     
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
-    private TransactionStatus status = TransactionStatus.SUCCESS;
-    
-    @Column(name = "error_code", length = 50)
-    private String errorCode;
+    @Column(name = "status", nullable = false, length = 2)
+    private TransactionStatusCode status;
     
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -40,19 +37,23 @@ public class WalletTransaction {
     
     protected WalletTransaction() {}
     
-    public WalletTransaction(String walletId, String transactionId, BigDecimal amount, BigDecimal balanceAfter) {
+    public WalletTransaction(String walletId, String transactionId, BigDecimal amount) {
         this.walletId = walletId;
         this.transactionId = transactionId;
         this.amount = amount;
-        this.balanceAfter = balanceAfter;
-        this.status = TransactionStatus.SUCCESS;
+        this.status = TransactionStatusCode.PROCESSING;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
     
-    public void markAsFailed(String errorCode) {
-        this.status = TransactionStatus.FAILED;
-        this.errorCode = errorCode;
+    public void markAsFailed(TransactionStatusCode statusCode) {
+        this.status = statusCode;
+        this.updatedAt = LocalDateTime.now();
+    }
+    
+    public void markAsSuccess(BigDecimal balanceAfter) {
+        this.balanceAfter = balanceAfter;
+        this.status = TransactionStatusCode.SUCCESS;
         this.updatedAt = LocalDateTime.now();
     }
     
@@ -62,12 +63,9 @@ public class WalletTransaction {
     public String getTransactionId() { return transactionId; }
     public BigDecimal getAmount() { return amount; }
     public BigDecimal getBalanceAfter() { return balanceAfter; }
-    public TransactionStatus getStatus() { return status; }
-    public String getErrorCode() { return errorCode; }
+    public TransactionStatusCode getStatus() { return status; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     
-    public enum TransactionStatus {
-        SUCCESS, FAILED
-    }
+
 }

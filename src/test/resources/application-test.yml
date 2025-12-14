@@ -1,7 +1,12 @@
 spring:
-#  datasource:
-    # Testcontainers가 자동으로 설정
-#    driver-class-name: com.mysql.cj.jdbc.Driver
+  docker:
+    compose:
+      enabled: true
+  datasource:
+    url: jdbc:mysql://localhost:3306/wallet_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: wallet_user
+    password: wallet_pass
+    driver-class-name: com.mysql.cj.jdbc.Driver
   
   jpa:
     hibernate:
@@ -11,13 +16,10 @@ spring:
       hibernate:
         format_sql: false
         dialect: org.hibernate.dialect.MySQLDialect
+        jdbc:
+          time_zone: UTC
 
 logging:
   level:
     org.hibernate.SQL: WARN
     org.hibernate.type.descriptor.sql.BasicBinder: WARN
-
-## Testcontainers 설정
-#testcontainers:
-#  reuse:
-#    enable: true

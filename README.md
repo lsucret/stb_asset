@@ -27,16 +27,22 @@ Optional<Wallet> findByWalletIdWithLock(@Param("walletId") String walletId);
 ```
 
 ### 2. 멱등성 보장
-**Database 유니크 제약조건 활용**
+**DB 제약으로 선점 방식**
 - `wallet_id + transaction_id` 복합 유니크 인덱스
-- 중복 요청 시 DB 레벨에서 자동 차단
+- PROCESSING 상태로 선점 INSERT 시도
+- UNIQUE 충돌 시 기존 트랜잭션 반환
+- 레이스 컨디션 완전 방지
 
-### 3. 성능 및 안정성 트레이드오프
+### 3. 상태 머신 및 안전성
+**트랜잭션 상태 관리**
+- PROCESSING: 처리 중 (선점 성공)
+- SUCCESS: 출금 성공
+- FAILED: 잔액 부족 등 실패
 
 **장점**:
 - 완벽한 데이터 무결성
-- 구현 단순성
-- 인프라 의존성 최소화
+- 실패 요청도 기록 보존
+- 장애 상황에서 유실 방지
 
 **단점**:
 - 처리량 제한 (직렬화로 인한 50-100 TPS)
@@ -75,9 +81,9 @@ docker-compose up -d
 ./gradlew bootRun
 ```
 
-**테스트 환경 (Testcontainers)**:
+**테스트 환경 (로컬 MySQL)**:
 ```bash
-# 테스트 실행 시 MySQL 컨테이너 자동 생성/삭제
+# MySQL 컨테이너가 실행 중인 상태에서 테스트 실행
 ./gradlew test
 ```
 
