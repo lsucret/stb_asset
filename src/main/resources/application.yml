@@ -1,0 +1,26 @@
+spring:
+  docker:
+    compose:
+      enabled: true
+  datasource:
+    url: jdbc:mysql://localhost:3306/wallet_db
+    username: wallet_user
+    password: wallet_pass
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      connection-timeout: 5000
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
