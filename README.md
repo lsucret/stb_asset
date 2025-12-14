@@ -1,15 +1,43 @@
 # 월렛 동시 출금 및 잔액 무결성 보장 시스템
 
-## 프로젝트 개요
-다수의 요청이 동일한 월렛에서 동시에 출금을 시도할 때 데이터 무결성을 완벽하게 보장하는 API 구현
+## 1. 프로젝트 및 인프라 기동 방법
 
-## 기술 스택
+### 프로젝트 빌드 및 실행
+```bash
+./gradlew bootRun
+```
+
+### 데이터베이스 기동
+- docker desktop 이 pc에 설치되어있다는 가정 하에 설명드립니다.
+
+**local(개발) 환경 (Spring Boot Docker Compose Support)**:
+```bash
+# 애플리케이션 실행 시 MySQL 자동 시작
+./gradlew bootRun
+```
+
+**테스트 환경 (로컬 MySQL)**:
+- docker desktop 에서 stb_asset 실행한 후 테스트 실행
+- (매 테스트마다 docker 를 실행/종료하는 시간 save를 위함)
+
+![img_1.png](img_1.png)
+
+```bash
+# MySQL 컨테이너가 실행 중인 상태에서 테스트 실행
+./gradlew test
+```
+
+- 애플리케이션 시작 시 테이블 자동 생성 (`ddl-auto: update`)
+- 테스트 시에만 초기 월렛 데이터 생성 (wallet1: 1,000,000원, wallet2: 500,000원, wallet3: 100,000원)
+
+
+## 2. 설계 결정
+
+### 기술 스택
 - **Language**: Java 21
 - **Framework**: Spring Boot 3.2.0
 - **Database**: MySQL 8.0
 - **ORM**: Spring Data JPA
-
-## 설계 결정
 
 ### 1. 동시성 제어 기법
 **Pessimistic Lock (비관적 락) 선택**
@@ -60,37 +88,6 @@ Optional<Wallet> findByWalletIdWithLock(@Param("walletId") String walletId);
 - Redis 분산 락을 통한 선행 필터링
 - 읽기 전용 조회 API 분리
 - 비동기 처리 도입
-
-## 프로젝트 실행 방법
-
-### 1. 프로젝트 빌드 및 실행
-```bash
-./gradlew bootRun
-```
-
-### 2. 데이터베이스 설정
-
-**개발 환경 (Spring Boot Docker Compose Support)**:
-```bash
-# 애플리케이션 실행 시 MySQL 자동 시작
-./gradlew bootRun
-```
-
-**수동 실행 (기존 방식)**:
-```bash
-# Docker Compose로 MySQL 실행
-docker-compose up -d
-./gradlew bootRun
-```
-
-**테스트 환경 (로컬 MySQL)**:
-```bash
-# MySQL 컨테이너가 실행 중인 상태에서 테스트 실행
-./gradlew test
-```
-
-- 애플리케이션 시작 시 테이블 자동 생성 (`ddl-auto: update`)
-- 테스트 시에만 초기 월렛 데이터 생성 (wallet1: 1,000,000원, wallet2: 500,000원, wallet3: 100,000원)
 
 ### 3. API 테스트
 ```bash
@@ -176,8 +173,17 @@ CREATE TABLE wallet_transaction (
 );
 ```
 
-**주요 변경사항**:
-- `status` 필드가 2자리 숫자 코드로 저장
-- `error_code` 필드 제거 (status로 통합)
-- `balance_after`는 성공 시에만 설정 (nullable)
+
+## 3. 테스트 결과
+- 동시성 테스트 실행 결과
+
+![img.png](img.png)
+
+- 동시성 미적용 후 실행 결과
+```java
+//    @Lock(LockModeType.PESSIMISTIC_WRITE)
+@Query("SELECT w FROM Wallet w WHERE w.walletId = :walletId")
+Optional<Wallet> findByWalletIdWithLock(@Param("walletId") String walletId);
 ```
+
+![img_2.png](img_2.png)
